@@ -836,12 +836,21 @@
       event.target.value = "";
     }
 
+    // Updated parseNum to handle currency symbols, commas, spaces, unicode dashes, and (parentheses) negative numbers
     function parseNum(val) {
       if (val === null || val === undefined || val === "") return 0;
-      if (typeof val === "number") return val;
-      const cleaned = String(val).replace(/,/g, "").trim();
-      const num = parseFloat(cleaned);
-      return isNaN(num) ? 0 : num;
+      if (typeof val === "number") return isFinite(val) ? val : 0;
+
+      let s = String(val).trim();
+      if (!s) return 0;
+
+      const isParenNegative = /^\(.*\)$/.test(s);
+      s = s.replace(/[()]/g, "");
+      s = s.replace(/[–−—]/g, "-").replace(/[₹,\s]/g, "");
+
+      const num = parseFloat(s);
+      if (isNaN(num)) return 0;
+      return isParenNegative ? -Math.abs(num) : num;
     }
 
     function handleMasterTrackerUpload(event) {
@@ -1622,11 +1631,20 @@
       tbody.innerHTML = pageRows
         .map((b) => {
           const isCleared = b.status === "Cleared";
+          const balVal = Number(b.balanceAmount || 0);
+          const isNegative = balVal < 0;
+
           const rowBg = isCleared
             ? "bg-emerald-50/40"
+            : isNegative
+            ? "bg-rose-50/40 hover:bg-rose-50/70"
             : b.isNew
             ? "bg-sky-50/50 hover:bg-sky-50"
             : "hover:bg-slate-50";
+
+          const balClass = isNegative
+            ? "text-rose-700 font-extrabold"
+            : "text-slate-900 font-bold";
 
           const dueBadge =
             b.dueSince > 90
@@ -1683,7 +1701,7 @@
               </td>
               <td class="py-2.5 px-3 text-xs text-right text-slate-600 whitespace-nowrap">₹${formatCurrency(b.billAmount)}</td>
               <td class="py-2.5 px-3 text-xs text-right text-emerald-700 whitespace-nowrap">₹${formatCurrency(b.paidAmount)}</td>
-              <td class="py-2.5 px-3 text-xs text-right font-bold text-slate-900 whitespace-nowrap">₹${formatCurrency(b.balanceAmount)}</td>
+              <td class="py-2.5 px-3 text-xs text-right ${balClass} whitespace-nowrap">₹${formatCurrency(balVal)}</td>
               <td class="py-2.5 px-3 text-center">
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${dueBadge}">${b.dueSince || 0}d</span>
               </td>
